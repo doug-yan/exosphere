@@ -2,7 +2,7 @@ require! {
   'async'
   'chalk' : {red}
   'events' : {EventEmitter}
-  '../../exosphere-shared' : {DockerHelper}
+  '../../exosphere-shared' : {DockerHelper, ObservableDockerRunner}
   'fs'
   'js-yaml' : yaml
   'nitroglycerin' : N
@@ -38,6 +38,19 @@ class DockerRunner extends EventEmitter
     @logger.log {@role, text, trim: yes}
 
 
+  _generate-container-options: ->
+    Env = for name, val of @docker-config.env
+      "#{name}=#{val}"
+    ExposedPorts = for name, port of @docker-config.publish
+      "#{port}/tcp": {}
+    Cmd = @docker-config.start-command |> (.split ' ')
+    {
+      Env
+      ExposedPorts
+      Cmd
+    }
+
+
   _create-run-command: ->
     command = "docker run --name=#{@docker-config.env.ROLE} "
     for name, val of @docker-config.env
@@ -54,14 +67,26 @@ class DockerRunner extends EventEmitter
 
 
   _run-container: ~>
-    @docker-container = new ObservableProcess(@_create-run-command!,
-                                              stdout: {@write},
-                                              stderr: {@write})
-      ..on 'ended', (exit-code, killed) ~>
-        | exit-code > 0 and not killed   =>  @_on-container-error!
+    @running-service = new ObservableDockerRunner do
+      image-name: "#{@docker-config.author}/#{@docker-config.image}"
+      container-name: @docker-config.env.SERVICE_NAME
+      stdout: {@write}
+      stderr: {@write}
+    @running-service
+      ..run-image create-options: @_generate-container-options!
+      ..on 'ended', (err, killed) ~>
+        | err and not killed   =>  @_on-container-error!
       ..wait @docker-config.start-text, ~>
         @logger.log role: 'exo-run', text: "'#{@role}' is running"
         @emit 'online'
+    # @docker-container = new ObservableProcess(@_create-run-command!,
+    #                                           stdout: {@write},
+    #                                           stderr: {@write})
+    #   ..on 'ended', (exit-code, killed) ~>
+    #     | exit-code > 0 and not killed   =>  @_on-container-error!
+    #   ..wait @docker-config.start-text, ~>
+    #     @logger.log role: 'exo-run', text: "'#{@role}' is running"
+    #     @emit 'online'
 
 
   _check-dependency-containers: (done) ~>

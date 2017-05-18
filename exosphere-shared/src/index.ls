@@ -4,6 +4,7 @@ require! {
   './call-args'
   './compile-service-routes'
   './normalize-path'
+  './observable-docker-runner' : ObservableDockerRunner
   './kill-child-processes'
   'path'
 }
@@ -14,6 +15,7 @@ module.exports = {
   compile-service-routes
   Logger
   DockerHelper
+  ObservableDockerRunner
   example-apps-path: path.join(__dirname, '..' 'example-apps')
   normalize-path
   kill-child-processes
